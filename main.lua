@@ -1,201 +1,264 @@
-local lootWhisper = CreateFrame('Frame')
-local addonLoadedFrame = CreateFrame('Frame')
-local loot = {'end'}
-local _frame
-local _label
+local IELoot = {}
+IELoot.frame = CreateFrame('Frame')
+IELoot.loot = {}
 
 
-SLASH_IELootCommand1 = '/ieloot'
+SLitmCountd1 = '/ieloot'
 
 
---[[local function LootReceivedEvent(self, event, ...)
-	local message, _, _, _, looter = ...
-	
-	local _, _, lootedItem = string.find(message, '(|.+|r)')
-	
-	print('GZ' .. looter .. '. ' .. lootedItem)
-end]]
-
-
-
-local function post()
-	if loot[#loot] == 'end' then
-		print('End of List')
-	else
-		if UnitInRaid('player') then
-			SendChatMessage(loot[#loot],'raid',nil, nil)
-			table.remove(loot,#loot)
-		else
-			print('You are not in a raidgroup.')
-		end
-	end
-end
-
-
-local function lootWhisperEvent(self, event, ...)
-	local arg1, arg2 = ...
-	local t = {strsplit("-", arg2)}
-	arg2 = t[1]
-	local arg3 = arg1 .. ' - ' .. arg2
-	table.insert(loot,arg3)
-	print(arg1 .. ' added to the list.')
-end
-
-
-
-local function disable()
-	lootWhisper:UnregisterAllEvents()
-end
-
-local function erase()
-	table.remove(loot,#loot)
-end
-
-local function showUi()
-	local frame = CreateFrame('Frame', 'MyFrame', UIParent)
+function IELoot.createUi()
+  local frame = CreateFrame('Frame', 'ieloot.uipanel', UIParent)
 	frame:SetFrameStrata('HIGH')
 	frame:Hide()
-	frame:SetSize(310,35)
+	frame:SetSize(370,37)
 	frame:SetPoint('TOPLEFT')
 	frame:SetBackdrop({bgFile = 'Interface/Tooltips/UI-Tooltip-Background', edgeFile = 'Interface/Tooltips/UI-Tooltip-Border', tile = true, tileSize = 16, edgeSize = 16, insets = {left = 4, right = 4, bottom = 4 }})
 	frame:SetBackdropColor(0,0,0,1)
 	frame:EnableMouse(true)
-
-
-	local hideButton = CreateFrame('Button', 'Text for hideButton', frame, 'UIPanelButtonTemplate')
-	hideButton:SetPoint('BOTTOMLEFT', 250, 5)
-	hideButton:SetWidth(50)
-	hideButton:SetHeight(25)
-	hideButton:SetText('Hide')
-	hideButton:SetScript('OnClick', hideButtonOnClick)
+	frame:SetMovable(true)
+	frame:RegisterForDrag('LeftButton')
+	frame:SetScript('OnDragStart', function() frame:StartMoving() end)
+	frame:SetScript('OnDragStop', function() frame:StopMovingOrSizing() end)
 	
-	local resetButton = CreateFrame('Button', 'Text for resetButton', frame, 'UIPanelButtonTemplate')
-	resetButton:SetPoint('BOTTOMLEFT', 190, 5)
-	resetButton:SetWidth(50)
-	resetButton:SetHeight(25)
-	resetButton:SetText('Reset')
-	resetButton:SetScript('OnClick', resetButtonOnClick)
+--	local titleRegion = frame:CreateTitleRegion()
+--	titleRegion:SetSize(30, 30)
+--	titleRegion:SetPoint('BOTTOMRIGHT')
+--	
+--	local titleRegionTexture = frame:CreateTexture('ieloot.titleRegionTexture', 'ARTWORK')
+--	titleRegionTexture:SetSize(30, 30)
+--	titleRegionTexture:SetPoint('BOTTOMRIGHT')
+--	titleRegionTexture:SetColorTexture( .3, .3 , .3, .5)
 	
-	local postButton = CreateFrame('Button', 'Text for postButton', frame, 'UIPanelButtonTemplate')
+	local listButton = CreateFrame('Button', 'ieloot.listButton', frame, 'UIPanelButtonTemplate')
+  listButton:SetPoint('BOTTOMLEFT', 10, 5)
+  listButton:SetWidth(50)
+  listButton:SetHeight(25)
+  listButton:SetText('List')
+  listButton:SetScript('OnClick', function() IELoot.listItems() end)
+	
+	local postButton = CreateFrame('Button', 'ieloot.postButton', frame, 'UIPanelButtonTemplate')
 	postButton:SetPoint('BOTTOMLEFT', 70 , 5)
 	postButton:SetWidth(50)
 	postButton:SetHeight(25)
 	postButton:SetText('Post')
-	postButton:SetScript('OnClick', postButtonOnClick)
+	postButton:SetScript('OnClick', function() IELoot.post() end)
 	
-	local eraseButton = CreateFrame('Button', 'Text for eraseButton', frame, 'UIPanelButtonTemplate')
-	eraseButton:SetPoint('BOTTOMLEFT', 130, 5)
-	eraseButton:SetWidth(50)
-	eraseButton:SetHeight(25)
-	eraseButton:SetText('Erase')
-	eraseButton:SetScript('OnClick', eraseButtonOnClick)
-	
-	local showButton = CreateFrame('Button', 'Text for showButton', frame, 'UIPanelButtonTemplate')
-	showButton:SetPoint('BOTTOMLEFT', 10, 5)
-	showButton:SetWidth(50)
-	showButton:SetHeight(25)
-	showButton:SetText('Show')
-	showButton:SetScript('OnClick', showButtonOnClick)
-	
-	minmapicon_create()
-	
-	return frame
+	local deleteButton = CreateFrame('Button', 'ieloot.deleteButton', frame, 'UIPanelButtonTemplate')
+	deleteButton:SetPoint('BOTTOMLEFT', 130, 5)
+	deleteButton:SetWidth(50)
+	deleteButton:SetHeight(25)
+	deleteButton:SetText('Delete')
+	deleteButton:SetScript('OnClick', function() IELoot.delete() end)
+
+  local resetButton = CreateFrame('Button', 'ieloot.resetButton', frame, 'UIPanelButtonTemplate')
+  resetButton:SetPoint('BOTTOMLEFT', 190, 5)
+  resetButton:SetWidth(50)
+  resetButton:SetHeight(25)
+  resetButton:SetText('Reset')
+  resetButton:SetScript('OnClick', function() IELoot.resetItems() end)
+
+  local toggleButton = CreateFrame('Button', 'ieloot.toggleButton', frame, 'UIPanelButtonTemplate')
+  toggleButton:SetPoint('BOTTOMLEFT', 250, 5)
+  toggleButton:SetWidth(50)
+  toggleButton:SetHeight(25)
+  toggleButton:SetText('Enable')
+  toggleButton:SetScript('OnClick', IELoot.onClickToggleButton)
+  
+  local hideButton = CreateFrame('Button', 'ieloot.hideButton', frame, 'UIPanelButtonTemplate')
+  hideButton:SetPoint('BOTTOMLEFT', 310, 5)
+  hideButton:SetWidth(52)
+  hideButton:SetHeight(25)
+  hideButton:SetText('Hide')
+  hideButton:SetScript('OnClick', function() IELoot.toggleGui() end)
+
+	IELoot.guiFrame = frame
+	IELoot.titleRegion = titleRegion
 end
 
-function hideButtonOnClick(self, button, ...)
-	_frame:Hide()
-	disable()
+
+function IELoot.createMiniMapButton()
+  local mmicon = CreateFrame('Button', 'ieloot.minimapbutton', Minimap)
+  mmicon:SetFrameStrata('MEDIUM')
+  mmicon:ClearAllPoints()
+  mmicon:SetPoint('CENTER', Minimap, 'CENTER', -76, -22)
+  mmicon:SetSize(31, 31)
+  mmicon:SetFrameLevel(8)
+  mmicon:SetHighlightTexture(136477)
+  mmicon:RegisterForDrag('LeftButton')
+  
+--  local overlay = mmicon:CreateTexture(nil, 'OVERLAY')
+--  overlay:SetSize(53, 53)
+--  overlay:SetTexture(136430)
+--  overlay:SetPoint('TOPLEFT')
+
+--  mmicon.bg = mmicon:CreateTexture(nil, 'BACKGROUND')
+--  mmicon.bg:SetSize(40, 40)
+--  mmicon.bg:SetTexture(136467)
+--  mmicon.bg:SetPoint('TOPLEFT', 7, -5)
+
+  mmicon.icon = mmicon:CreateTexture(nil, 'ARTWORK')
+  mmicon.icon:SetTexture('Interface\\AddOns\\IELoot\\media\\icon.tga')
+  mmicon.icon:SetSize(17,17)
+  mmicon.icon:SetPoint('TOPLEFT',7,-6)
+
+  mmicon:RegisterForClicks('anyUp')
+
+  mmicon:SetScript('OnEnter', function(self)
+    GameTooltip:SetOwner(self, 'ANCHOR_LEFT')
+    GameTooltip:AddLine('IELoot')
+    GameTooltip:AddLine('Click to show UI.')
+    GameTooltip:Show()
+    end)
+  mmicon:SetScript('OnLeave', function(self)
+    GameTooltip:Hide()
+  end)
+  mmicon:SetScript('OnClick', function()
+    IELoot.toggleGui()
+  end)
 end
 
-function postButtonOnClick(self, button, ...)
-	post()
+
+function IELoot.toggleGui()
+  if IELoot.guiFrame:IsVisible() then
+  	IELoot.guiFrame:Hide()
+	else
+    IELoot.guiFrame:Show()
+  end
 end
 
-function eraseButtonOnClick(self, button, ...)
-	erase()
+
+function IELoot.enable()
+  if IELoot.active then return end
+  IELoot.frame:RegisterEvent('CHAT_MSG_WHISPER')
+  IELoot.active = true
+  print('IELoot enabled.')
 end
 
-function showButtonOnClick(self, button, ...)
-	local counter = #loot
-	print('Total Items: ' .. counter-1)
-	while counter>1 do
-		print(counter .. ': ' .. loot[counter])
-		counter = counter-1
-	end
-	
+
+function IELoot.disable()
+  IELoot.frame:UnregisterEvent('CHAT_MSG_WHISPER')
+  IELoot.active = nil
+  print('IELoot disabled.')
 end
 
-function resetButtonOnClick(self, button, ...)
-	wipe(loot)
-	loot[1]= 'end'
+
+function IELoot.onClickToggleButton(this)
+  if IELoot.active then
+    IELoot.disable()
+    this:SetText('Enable')
+  else
+    IELoot.enable()
+    this:SetText('Disable')
+  end
 end
 
-local function enable()
-	lootWhisper:RegisterEvent('CHAT_MSG_WHISPER')
-	lootWhisper:SetScript('OnEvent', lootWhisperEvent)
-	_frame:Show()
+
+function IELoot.post()
+  local itmCount = #IELoot.loot
+  if itmCount < 1 then
+    print('Nothing to post!')
+  else
+    if UnitInRaid('player') then
+      SendChatMessage(IELoot.loot[itmCount], 'raid', nil, nil)
+      table.remove(IELoot.loot, itmCount)
+    else
+      print('You are not in a raidgroup.')
+      print(IELoot.loot[itmCount])
+    end
+  end
 end
 
-	
+
+function IELoot.delete()
+  local itmCount = #IELoot.loot
+  if itmCount > 0 then
+    print('Deleting ' .. IELoot.loot[itmCount])
+    table.remove(IELoot.loot,itmCount)
+  else
+    print('List is empty!')
+   end
+end
+
+
+function IELoot.resetItems()
+  wipe(IELoot.loot)
+  print('Items have been reset.')
+end
+
+
+function IELoot.listItems()
+  local itmCount = #IELoot.loot
+  print('Total Items: ' .. itmCount)
+  while itmCount > 0 do
+    print(itmCount .. ': ' .. IELoot.loot[itmCount])
+    itmCount = itmCount - 1
+  end
+end
+
+
+--[[local function LootReceivedEvent(self, event, ...)
+  local message, _, _, _, looter = ...
+  
+  local _, _, lootedItem = string.find(message, '(|.+|r)')
+  
+  print('GZ' .. looter .. '. ' .. lootedItem)
+end]]
+
+
+function IELoot.onEvent(self, event, ...)
+  if event == 'CHAT_MSG_WHISPER' then
+    --tprint(table.pack(...))
+    local msg, playerFull,_ ,_ , player = ...
+    if not player then
+      local split = {strsplit("-", playerFull)}
+      player = split[1]
+    end
+    local lootString = msg .. ' - ' .. player
+    table.insert(IELoot.loot, lootString)
+    print(msg .. ' added to the list.')
+  elseif event == 'ADDON_LOADED' then
+    local addonName = ...
+    print(...)
+    if addonName == 'IELoot' then
+      print('IELoot loaded')
+      IELoot.createUi()
+      IELoot.createMiniMapButton()
+      IELoot.frame:UnregisterEvent('ADDON_LOADED')
+    end
+  end
+end
+
+
 function SlashCmdList.IELootCommand(msg, editbox)
-	if msg == 'enable' then
-		enable()
-	else 
-		print('Unknown Command')
-	end
+  if msg == 'enable' then
+    IELoot.toggleGui()
+  else 
+    print('Unknown Command')
+  end
 end
 
 
-local function Initialize(self, event, addonName, ...)
-	if addonName == 'IELoot' then
-		print('IELoot loaded')
-	end
-	local frame = showUi()
-	_frame = frame
+IELoot.frame:RegisterEvent('ADDON_LOADED')
+IELoot.frame:SetScript('OnEvent', IELoot.onEvent)
+
+
+-- print contents of tbl with (initial) indentation
+function tprint (tbl, indent)
+  if not indent then indent = 0 end
+  for k, v in pairs(tbl) do
+    formatting = string.rep("  ", indent) .. k .. ": "
+    if type(v) == "table" then
+      print(formatting)
+      tprint(v, indent+1)
+    elseif type(v) == 'boolean' then
+      print(formatting .. tostring(v))    
+    else
+      print(formatting .. v)
+    end
+  end
 end
 
-function minmapicon_create()
-	local mmicon = CreateFrame('Button', 'ltdm.addon.minimapicon', Minimap)
-	mmicon:SetFrameStrata('MEDIUM')
-	mmicon:ClearAllPoints()
-	mmicon:SetPoint('CENTER', Minimap, 'CENTER', -76, -22)
-	mmicon:SetSize(31, 31)
-	mmicon:SetFrameLevel(8)
-	mmicon:SetHighlightTexture(136477)
-	mmicon:RegisterForDrag('LeftButton')
-	
-
-	--[[overlay = mmicon:CreateTexture(nil, 'OVERLAY')
-	overlay:SetSize(53, 53)
-	overlay:SetTexture(136430)
-	overlay:SetPoint('TOPLEFT')
-
-	mmicon.bg = mmicon:CreateTexture(nil, 'BACKGROUND')
-	mmicon.bg:SetSize(20, 20)
-	mmicon.bg:SetTexture(136467)
-	mmicon.bg:SetPoint('TOPLEFT', 7, -5)]]
-
-	mmicon.icon = mmicon:CreateTexture(nil, 'ARTWORK')
-	mmicon.icon:SetTexture('Interface\\AddOns\\IELoot\\media\\icon.tga')
-	mmicon.icon:SetSize(17,17)
-	mmicon.icon:SetPoint('TOPLEFT',7,-6)
-
-	mmicon:RegisterForClicks('anyUp')
-
-	mmicon:SetScript('OnEnter', function(self)
-		GameTooltip:SetOwner(self, 'ANCHOR_LEFT')
-		GameTooltip:AddLine('IELoot')
-		GameTooltip:AddLine('Click to show Frame.')
-		GameTooltip:Show()
-		end)
-	mmicon:SetScript('OnLeave', function(self)
-		GameTooltip:Hide()
-	end)
-	mmicon:SetScript('OnClick', function()
-		enable()
-
-	end)
+-- packs vararg into table
+function table.pack(...)
+  return { n = select("#", ...), ... }
 end
-
-addonLoadedFrame:RegisterEvent('ADDON_LOADED')
-addonLoadedFrame:SetScript('OnEvent', Initialize)
