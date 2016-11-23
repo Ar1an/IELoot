@@ -134,6 +134,7 @@ function IELoot.enable()
   if IELoot.active then return end
   IELoot.frame:RegisterEvent('CHAT_MSG_WHISPER')
   IELoot.frame:RegisterEvent('CHAT_MSG_BN_WHISPER')
+  IELoot.frame:RegisterEvent('GET_ITEM_INFO_RECEIVED')
   IELoot.active = true
   print('IELoot enabled.')
 end
@@ -142,6 +143,7 @@ end
 function IELoot.disable()
   IELoot.frame:UnregisterEvent('CHAT_MSG_WHISPER')
   IELoot.frame:UnregisterEvent('CHAT_MSG_BN_WHISPER')
+  IELoot.frame:UnregisterEvent('GET_ITEM_INFO_RECEIVED')
   IELoot.active = nil
   print('IELoot disabled.')
 end
@@ -216,36 +218,91 @@ end]]
 function IELoot.onEvent(self, event, ...)
   if event == 'CHAT_MSG_WHISPER' then
     --tprint(table.pack(...))
-    local msg, playerFull,_ ,_ , player = ...
-    if not player then
-      local split = {strsplit("-", playerFull)}
-      player = split[1]
+    local msg, charNameFull,_ ,_ , charName = ...
+    local items = IELoot.extractItem(msg)
+    if #items == 0 then return end
+    -- XRealm: split to remove realm name
+    if not charName or charName == charNameFull then
+      local split = {strsplit("-", charNameFull)}
+      charName = split[1]
     end
-    local lootString = msg .. ' - ' .. player
-    table.insert(IELoot.loot, lootString)
-    print(msg .. ' added to the list.')
+    for idx, item in pairs(items) do
+      IELoot.addToTable(item, charName)
+    end
   elseif event == 'CHAT_MSG_BN_WHISPER' then
     --tprint(table.pack(...))
     -- http://us.battle.net/forums/en/wow/topic/20747846285
-    local msg, realId, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, bnetIDAccount = ...
+    local msg, realId, _, _, _, _, _, _, _, _, _, _, bnetIDAccount = ...
+    local items = IELoot.extractItem(msg, true)
+    if #items == 0 then return end
     -- http://wow.gamepedia.com/API_BNGetFriendInfoByID
     -- bnetIDAccount, accountName, battleTag, isBattleTagPresence, characterName, bnetIDGameAccount, client, isOnline, lastOnline, isAFK, isDND, messageText, noteText, isRIDFriend, messageTime, canSoR, isReferAFriend, canSummonFriend = BNGetFriendInfoByID(bnetIDAccount)
     -- TODO: does arg5 always contain characterName? what about multiple accounts online (Shoona)?
     local bnetIDGameAccount = select(6,BNGetFriendInfoByID(bnetIDAccount))
     -- http://wow.gamepedia.com/API_BNGetGameAccountInfo
     local hasFocus, characterName, client, realmName, realmID, faction, race, class, guild, zoneName, level, gameText, broadcastText, broadcastTime, canSoR, toonID, bnetIDAccount, isGameAFK, isGameBusy  = BNGetGameAccountInfo(bnetIDGameAccount)
-    local lootString = msg .. ' - ' .. characterName
-    table.insert(IELoot.loot, lootString)
-    print(msg .. ' added to the list.')
+    for idx, item in pairs(items) do
+      IELoot.queryItem(item, characterName)
+    end
+  elseif event == 'GET_ITEM_INFO_RECEIVED' then
+    IELoot.queryItem(...)
   elseif event == 'ADDON_LOADED' then
     local addonName = ...
-    print(...)
     if addonName == 'IELoot' then
       print('IELoot loaded')
       IELoot.createUi()
       IELoot.createMiniMapButton()
       IELoot.frame:UnregisterEvent('ADDON_LOADED')
     end
+  end
+end
+
+
+function IELoot.extractItem(msg, bnet)
+  local itemStrings = {}
+  local pattern = "(|c.-|r)"
+  -- WoW somehow dislikes itemlinks from Bnet whispers.
+  -- Instead, we take the itemstring from the matches found and query the server for itemlinks.
+  if bnet then
+    --pattern = "(|H.-|h.-|h)"
+    -- (item:.+?)\|h
+    pattern = "(item:.-)|h"
+  end
+  local i = 1
+  for word in string.gmatch(msg, pattern) do
+    --print('Extracted: ' .. word)
+    itemStrings[i] = word
+    i = i + 1
+  end
+  return itemStrings
+end
+
+
+function IELoot.addToTable(item, player)
+  local tableEntry = item .. ' - ' .. player
+  table.insert(IELoot.loot, tableEntry)
+  print('#' .. #IELoot.loot .. ': ' .. item .. ' added to the list by player ' .. player .. '.')
+end
+
+-- Can be called on first item encounter to populate cache or after item data has been received.
+-- waitingIds is holding items queried in the past and corresponding player names.
+IELoot.waitingIds = {}
+function IELoot.queryItem(itemId, characterName)
+  local _, item = GetItemInfo(itemId)
+  -- triggered by whisper
+  if characterName then
+    if item ~= nil then
+      IELoot.addToTable(item, characterName)
+    else
+      local matched = tonumber(string.match(itemId, 'item:(%d+)'))
+      IELoot.waitingIds[matched] = { itemString = itemId, character = characterName }
+      --print('W: Added to queue: ' .. matched)
+    end
+  -- triggered by event
+  elseif IELoot.waitingIds[itemId].itemString ~= nil then
+    local _, item = GetItemInfo(IELoot.waitingIds[itemId].itemString)
+    IELoot.addToTable(item, IELoot.waitingIds[itemId].character)
+    IELoot.waitingIds[itemId] = nil
   end
 end
 
@@ -263,9 +320,12 @@ end
 IELoot.frame:RegisterEvent('ADDON_LOADED')
 IELoot.frame:SetScript('OnEvent', IELoot.onEvent)
 
+--
+-- DEBUG --
+--
 
 -- print contents of tbl with (initial) indentation
-function tprint (tbl, indent)
+function tprint(tbl, indent)
   if not indent then indent = 0 end
   for k, v in pairs(tbl) do
     formatting = string.rep("  ", indent) .. k .. ": "
