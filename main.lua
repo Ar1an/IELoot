@@ -133,6 +133,7 @@ end
 function IELoot.enable()
   if IELoot.active then return end
   IELoot.frame:RegisterEvent('CHAT_MSG_WHISPER')
+  IELoot.frame:RegisterEvent('CHAT_MSG_BN_WHISPER')
   IELoot.active = true
   print('IELoot enabled.')
 end
@@ -140,6 +141,7 @@ end
 
 function IELoot.disable()
   IELoot.frame:UnregisterEvent('CHAT_MSG_WHISPER')
+  IELoot.frame:UnregisterEvent('CHAT_MSG_BN_WHISPER')
   IELoot.active = nil
   print('IELoot disabled.')
 end
@@ -222,6 +224,19 @@ function IELoot.onEvent(self, event, ...)
     local lootString = msg .. ' - ' .. player
     table.insert(IELoot.loot, lootString)
     print(msg .. ' added to the list.')
+  elseif event == 'CHAT_MSG_BN_WHISPER' then
+    --tprint(table.pack(...))
+    -- http://us.battle.net/forums/en/wow/topic/20747846285
+    local msg, realId, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, bnetIDAccount = ...
+    -- http://wow.gamepedia.com/API_BNGetFriendInfoByID
+    -- bnetIDAccount, accountName, battleTag, isBattleTagPresence, characterName, bnetIDGameAccount, client, isOnline, lastOnline, isAFK, isDND, messageText, noteText, isRIDFriend, messageTime, canSoR, isReferAFriend, canSummonFriend = BNGetFriendInfoByID(bnetIDAccount)
+    -- TODO: does arg5 always contain characterName? what about multiple accounts online (Shoona)?
+    local bnetIDGameAccount = select(6,BNGetFriendInfoByID(bnetIDAccount))
+    -- http://wow.gamepedia.com/API_BNGetGameAccountInfo
+    local hasFocus, characterName, client, realmName, realmID, faction, race, class, guild, zoneName, level, gameText, broadcastText, broadcastTime, canSoR, toonID, bnetIDAccount, isGameAFK, isGameBusy  = BNGetGameAccountInfo(bnetIDGameAccount)
+    local lootString = msg .. ' - ' .. characterName
+    table.insert(IELoot.loot, lootString)
+    print(msg .. ' added to the list.')
   elseif event == 'ADDON_LOADED' then
     local addonName = ...
     print(...)
@@ -269,3 +284,4 @@ end
 function table.pack(...)
   return { n = select("#", ...), ... }
 end
+
