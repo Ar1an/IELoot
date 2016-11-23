@@ -1,7 +1,7 @@
 local IELoot = {}
 IELoot.frame = CreateFrame('Frame')
 IELoot.loot = {}
-
+IELoot.debug = nil
 
 SLitmCountd1 = '/ieloot'
 
@@ -16,8 +16,10 @@ function IELoot.createUi()
 	frame:SetBackdropColor(0,0,0,1)
 	frame:EnableMouse(true)
 	frame:SetMovable(true)
+	frame:SetClampedToScreen(true)
 	frame:RegisterForDrag('LeftButton')
 	frame:SetScript('OnDragStart', function() frame:StartMoving() end)
+	-- TODO: save position after moving the frame
 	frame:SetScript('OnDragStop', function() frame:StopMovingOrSizing() end)
 	
 --	local titleRegion = frame:CreateTitleRegion()
@@ -86,15 +88,16 @@ function IELoot.createMiniMapButton()
   mmicon:SetHighlightTexture(136477)
   mmicon:RegisterForDrag('LeftButton')
   
---  local overlay = mmicon:CreateTexture(nil, 'OVERLAY')
---  overlay:SetSize(53, 53)
---  overlay:SetTexture(136430)
---  overlay:SetPoint('TOPLEFT')
+  mmicon.overlay = mmicon:CreateTexture(nil, 'OVERLAY')
+  mmicon.overlay:SetSize(53, 53)
+  mmicon.overlay:SetTexture(136430)
+  mmicon.overlay:SetPoint('TOPLEFT')
 
---  mmicon.bg = mmicon:CreateTexture(nil, 'BACKGROUND')
---  mmicon.bg:SetSize(40, 40)
---  mmicon.bg:SetTexture(136467)
---  mmicon.bg:SetPoint('TOPLEFT', 7, -5)
+  --mmicon.bg = mmicon:CreateTexture(nil, 'BACKGROUND')
+  --mmicon.bg:SetSize(40, 40)
+  --mmicon.bg:SetTexture(136467)
+  --mmicon.bg:SetTexture(1, 1, 1)
+  --mmicon.bg:SetPoint('TOPLEFT')
 
   mmicon.icon = mmicon:CreateTexture(nil, 'ARTWORK')
   mmicon.icon:SetTexture('Interface\\AddOns\\IELoot\\media\\icon.tga')
@@ -155,15 +158,17 @@ end
 
 function IELoot.post()
   local itmCount = #IELoot.loot
-  if itmCount < 1 then
+  if not itmCount or itmCount < 1 then
     print('Nothing to post!')
   else
     if UnitInRaid('player') then
-      SendChatMessage(IELoot.loot[itmCount], 'raid', nil, nil)
-      table.remove(IELoot.loot, itmCount)
+      SendChatMessage(IELoot.loot[1], 'raid', nil, nil)
+      table.remove(IELoot.loot, 1)
     else
       print('You are not in a raidgroup.')
-      print(IELoot.loot[itmCount])
+      if not IELoot.debug then return end
+      print(IELoot.loot[1])
+      table.remove(IELoot.loot, 1)
     end
   end
 end
@@ -189,9 +194,10 @@ end
 function IELoot.listItems()
   local itmCount = #IELoot.loot
   print('Total Items: ' .. itmCount)
-  while itmCount > 0 do
-    print(itmCount .. ': ' .. IELoot.loot[itmCount])
-    itmCount = itmCount - 1
+  local i = 1
+  while i <= itmCount do
+    print('#' .. i .. ': ' .. IELoot.loot[i])
+    i = i + 1
   end
 end
 
@@ -232,6 +238,7 @@ end
 function SlashCmdList.IELootCommand(msg, editbox)
   if msg == 'enable' then
     IELoot.toggleGui()
+    IELoot.enable()
   else 
     print('Unknown Command')
   end
