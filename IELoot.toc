@@ -1,0 +1,6 @@
+## Interface: 70100
+## Title: IELoot
+## Author: Ari
+## Version: 0.1
+
+main.lua
