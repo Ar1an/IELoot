@@ -2,6 +2,9 @@ local IELoot = {}
 IELoot.frame = CreateFrame('Frame')
 IELoot.loot = {}
 IELoot.debug = nil
+IELoot.events = {
+  'CHAT_MSG_WHISPER', 'CHAT_MSG_BN_WHISPER', 'GET_ITEM_INFO_RECEIVED'
+}
 
 SLitmCountd1 = '/ieloot'
 
@@ -19,7 +22,6 @@ function IELoot.createUi()
 	frame:SetClampedToScreen(true)
 	frame:RegisterForDrag('LeftButton')
 	frame:SetScript('OnDragStart', function() frame:StartMoving() end)
-	-- TODO: save position after moving the frame
 	frame:SetScript('OnDragStop', function() frame:StopMovingOrSizing() end)
 	
 --	local titleRegion = frame:CreateTitleRegion()
@@ -86,7 +88,14 @@ function IELoot.createMiniMapButton()
   mmicon:SetSize(31, 31)
   mmicon:SetFrameLevel(8)
   mmicon:SetHighlightTexture(136477)
+  mmicon:EnableMouse(true)
+  mmicon:SetMovable(true)
+  -- TODO: restrict movement to minimap Border
+  mmicon:SetClampedToScreen(true)
   mmicon:RegisterForDrag('LeftButton')
+  mmicon:RegisterForClicks('anyUp')
+  mmicon:SetScript('OnDragStart', function() mmicon:StartMoving() end)
+  mmicon:SetScript('OnDragStop', function() mmicon:StopMovingOrSizing() end)
   
   mmicon.overlay = mmicon:CreateTexture(nil, 'OVERLAY')
   mmicon.overlay:SetSize(53, 53)
@@ -103,8 +112,6 @@ function IELoot.createMiniMapButton()
   mmicon.icon:SetTexture('Interface\\AddOns\\IELoot\\media\\icon.tga')
   mmicon.icon:SetSize(17,17)
   mmicon.icon:SetPoint('TOPLEFT',7,-6)
-
-  mmicon:RegisterForClicks('anyUp')
 
   mmicon:SetScript('OnEnter', function(self)
     GameTooltip:SetOwner(self, 'ANCHOR_LEFT')
@@ -131,19 +138,18 @@ end
 
 
 function IELoot.enable()
-  if IELoot.active then return end
-  IELoot.frame:RegisterEvent('CHAT_MSG_WHISPER')
-  IELoot.frame:RegisterEvent('CHAT_MSG_BN_WHISPER')
-  IELoot.frame:RegisterEvent('GET_ITEM_INFO_RECEIVED')
+  for _, event in pairs(IELoot.events) do
+    IELoot.frame:RegisterEvent(event)
+  end
   IELoot.active = true
   print('IELoot enabled.')
 end
 
 
 function IELoot.disable()
-  IELoot.frame:UnregisterEvent('CHAT_MSG_WHISPER')
-  IELoot.frame:UnregisterEvent('CHAT_MSG_BN_WHISPER')
-  IELoot.frame:UnregisterEvent('GET_ITEM_INFO_RECEIVED')
+  for _, event in pairs(IELoot.events) do
+    IELoot.frame:UnregisterEvent(event)
+  end
   IELoot.active = nil
   print('IELoot disabled.')
 end
