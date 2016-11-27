@@ -305,7 +305,7 @@ function IELoot.queryItem(itemId, characterName)
       --print('W: Added to queue: ' .. matched)
     end
   -- triggered by event
-  elseif IELoot.waitingIds[itemId].itemString ~= nil then
+  elseif IELoot.waitingIds[itemId] ~= nil and IELoot.waitingIds[itemId].itemString ~= nil then
     local _, item = GetItemInfo(IELoot.waitingIds[itemId].itemString)
     IELoot.addToTable(item, IELoot.waitingIds[itemId].character)
     IELoot.waitingIds[itemId] = nil
