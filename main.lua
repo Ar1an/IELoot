@@ -265,7 +265,8 @@ function IELoot.onEvent(self, event, ...)
             IELoot.queryItem(item, characterName)
         end
     elseif event == 'GET_ITEM_INFO_RECEIVED' then
-        IELoot.queryItem(...)
+        itemId = ...
+        IELoot.queryItem(itemId)
     elseif event == 'ADDON_LOADED' then
         local addonName = ...
         if addonName == 'IELoot' then
@@ -306,9 +307,14 @@ end
 -- waitingIds is holding items queried in the past and corresponding player names.
 IELoot.waitingIds = {}
 function IELoot.queryItem(itemId, characterName)
-    local _, item = GetItemInfo(itemId)
+    -- strange case where neither itemId nor characterName contain useful data
+    if itemId == 0 then
+        return
+    end
+
     -- triggered by whisper
     if characterName then
+        local _, item = GetItemInfo(itemId)
         if item ~= nil then
             IELoot.addToTable(item, characterName)
         else
