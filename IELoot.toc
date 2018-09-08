@@ -1,6 +1,7 @@
-## Interface: 70100
+## Interface: 80000
 ## Title: IELoot
-## Author: Ari
-## Version: 0.1
+## Notes: IE raid community loot distribution helper.
+## Version: 0.2
+## Author: Ari, Chris
 
 main.lua
